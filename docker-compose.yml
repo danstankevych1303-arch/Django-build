@@ -1,29 +1,45 @@
 version: '3.8'
 
 services:
-  jenkins:
-    image: jenkins/jenkins:lts
-    container_name: jenkins
-    user: root
-    ports:
-      - "8080:8080"
-      - "50000:50000"
-    volumes:
-      - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: unless-stopped
-
-  jenkins-agent:
-    image: custom-jenkins-agent
-    container_name: jenkins-agent-1
-    depends_on:
-      - jenkins
+  db:
+    image: postgres:15
     environment:
-      JENKINS_URL: "http://jenkins:8080"
-      JENKINS_AGENT_NAME: "docker-agent-1"
-      JENKINS_SECRET: "PUT_YOUR_SECRET_HERE"
-      JENKINS_AGENT_WORKDIR: "/home/jenkins/agent"
-    restart: unless-stopped
+      POSTGRES_DB: django_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    
+    networks:
+      - django_db_net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - DATABASE_URL=postgres://user:password@db:5432/django_db
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - django_db_net
+      - django_pgadmin_net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - django_pgadmin_net
+
+networks:
+  django_db_net:      
+  django_pgadmin_net: 
 
 volumes:
-  jenkins_home:
+  postgres_data:
